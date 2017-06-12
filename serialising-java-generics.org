@@ -1,0 +1,52 @@
+* Serialising with generics
+Our object will act as a repository for objects, allowing us to save them, and retrieve them.
+The objects will be persisted to a JSON document each, so we will need to handle the serialisation and deserialisation.
+We must return a strongly-typed object. We don't want to be casting left-and-right.
+** First thoughts
+Although each repository stores only objects of a specific type, we want to be able to use the same class for many different types of objects. This tells us that we should be looking at generics.
+** Second thoughts
+We create a repository for objects of type T.
+It has at least two public methods, get and save.
+Save takes a key and an object of type T, returning void.
+Get takes a key, and returns an object of type T.
+#+begin_src java
+public interface Repository <T> {
+    void save (String key, T value);
+    T get (String key)
+}
+#+end_src
+
+The first poses no problem:
+#+begin_src java
+public class RepositoryImpl <T>
+    implements Repository <T> {
+
+    public void save (String key, T value) {
+        ObjectMapper mapper = new ObjectMapper();
+        String jsonString = mapper.writeValueAsString(value);
+        // write this string somewhere
+    }
+}
+#+end_src
+
+The tricky bit is when serialising...
+#+begin_src java
+public T get (String key) {
+    // get the jsonString from whereever you saved it to...
+    String jsonString = "";
+    return mapper.readValue(jsonString);
+}
+#+end_src
+
+Uh oh! This won't compile as we don't know that readValue will return.
+Instead we can try casting its result to type T...
+
+#+begin_src java
+public T get (String key) {
+    // get the jsonString from whereever you saved it to...
+    String jsonString = "";
+    return (T) mapper.readValue(jsonString);
+}
+#+end_src
+
+This gives the cryptic warning that T is a variable.
