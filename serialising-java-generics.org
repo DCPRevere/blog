@@ -1,3 +1,5 @@
+#+ID: serialising
+#+TITLE: Serialising with Java generics
 * Serialising with generics
 Our object will act as a repository for objects, allowing us to save them, and retrieve them.
 The objects will be persisted to a JSON document each, so we will need to handle the serialisation and deserialisation.
