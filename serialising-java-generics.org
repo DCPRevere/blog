@@ -1,5 +1,6 @@
 #+TITLE: Serialising with Java generics
 #+ID: serialising
+#+DATE: 2017/06/27
 * Serialising and generics
 I needed to create a repository that could persist objects in JSON form.
 A repository has two public methods, get and save.
