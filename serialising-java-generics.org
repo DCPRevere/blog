@@ -88,7 +88,7 @@ public class RepositoryImpl <T>
 
 This looks like it's going to be perfect... until you compile.
 
-#+BEGIN_SRC
+#+BEGIN_SRC sh
 cannot select from a type variable
 #+END_SRC
 
