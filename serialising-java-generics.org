@@ -87,7 +87,11 @@ public class RepositoryImpl <T>
 #+END_SRC
 
 This looks like it's going to be perfect... until you compile.
-=cannot select from a type variable=
+
+#+BEGIN_SRC
+cannot select from a type variable
+#+END_SRC
+
 It seems that =T.class= is a problem, and it's a bit beyond my understanding to know why.
 
 Instead, we can pass the Class into the object within the constructor. I'll also add exception handling.
