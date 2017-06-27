@@ -1,4 +1,3 @@
-#+ID: serialising
 #+TITLE: Serialising with Java generics
 * Serialising with generics
 Our object will act as a repository for objects, allowing us to save them, and retrieve them.
