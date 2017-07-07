@@ -1,3 +1,6 @@
+#+TITLE: On creating private org directories
+#+ID: private-org
+#+DATE: 2017/07/07
 * Intro
 I've used emacs now for two years. I say emacs, but really I use spacemacs. And really I could just say org mode, (as that's what constitutes 2/3 rds of my use.)
 After using many analogue and digital organisation tools, I realised that none did the job perfectly. Most were proprietary. All were either too limited, or required that your setup be complicated from the get-go.
