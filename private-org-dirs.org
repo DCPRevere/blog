@@ -8,7 +8,7 @@ After using many analogue and digital organisation tools, I realised that none d
 When starting org mode, you can use a single file with top level tasks -- and as your reliance on it grows, as inevitably it will, you can group tasks under headings, and then into files.
 This article goes one step further than that, to creating separate org repos.
 ** Bullet journal
-It should be said that the [[http://bulletjournal.com/] [bullet journal]] comes to org in its simplicity and extensibility, and could be considered its analogue cousin. I might go into more detail about how I use it in a future post.
+It should be said that the [[http://bulletjournal.com/][bullet journal]] comes to org in its simplicity and extensibility, and could be considered its analogue cousin. I might go into more detail about how I use it in a future post.
 * Motivation
 I use org mode as the primary store of information about myself, what I have done, and what I will do.
 It's fair to say that it contains a lot of stuff that I wouldn't want in the wrong hands -- and this goes further that criminals, but also my employer, clients, and significant other.
