@@ -26,7 +26,7 @@ You should put these directories as variables in your config.
 (setq org-private-directory "~/org/private")
 #+END_SRC
 * Agenda
-http://orgmode.org/manual/Agenda-views.html
+[http://orgmode.org/manual/Agenda-views.html]
 The files that are included in your agenda is determined by the variable =org-agenda-files=. If a member of the list is a file, its items will be included, and if it is a directory, all files with the extension =.org= in this directory will be included.
 We will add both our default and private directories to our agenda.
 
@@ -35,8 +35,8 @@ We will add both our default and private directories to our agenda.
                          org-private-directory))
 #+END_SRC
 * Capture
-http://orgmode.org/manual/Capture.html
-Org's capture mode has been a god-send. Whereas previously I would expend mental effort keeping track of the tasks that accumulate throughout the day that I couldn't take down immediately, I know spend 5 seconds capturing in just enough details that I can elaborate later. I no longer worry that I might forget. (Capture's original name, =remember.el= was fitting. https://www.emacswiki.org/emacs/RememberMode)
+[http://orgmode.org/manual/Capture.html]
+Org's capture mode has been a god-send. Whereas previously I would expend mental effort keeping track of the tasks that accumulate throughout the day that I couldn't take down immediately, I know spend 5 seconds capturing in just enough details that I can elaborate later. I no longer worry that I might forget. (Capture's original name, =remember.el= was fitting. [https://www.emacswiki.org/emacs/RememberMode])
 Your org mode config is probably set up to use a single org capture file, =org-default-notes-file=. This is normally fine, but not a good idea if you'll be using capture to record private information. What you'll want is two separate capture files, one in =~/org/= and one in =~/org/private/=.
 
 #+BEGIN_SRC elisp
@@ -75,4 +75,4 @@ I make hundreds of changes to my org files per day, which means that meaningful 
 All of my commits are made to master.
 I have never looked through the history of my commits.
 So I'd be interested to know if anyone has an alternative that they use, possibly DropBox or something similar -- and is it able to maintain separate default and private directories?
-(http://orgmode.org/worg/org-tutorials/org-vcs.html)
+[http://orgmode.org/worg/org-tutorials/org-vcs.html]
