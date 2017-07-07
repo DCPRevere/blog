@@ -1,0 +1,75 @@
+* Intro
+I've used emacs now for two years. I say emacs, but really I use spacemacs. And really I could just say org mode, (as that's what constitutes 2/3 rds of my use.)
+After using many analogue and digital organisation tools, I realised that none did the job perfectly. Most were proprietary. All were either too limited, or required that your setup be complicated from the get-go.
+
+When starting org mode, you can use a single file with top level tasks -- and as your reliance on it grows, as inevitably it will, you can group tasks under headings, and then into files.
+This article goes one step further than that, to creating separate org repos.
+** Bullet journal
+It should be said that the bullet journal (http://bulletjournal.com/) comes to org in its simplicity and extensibility, and could be considered its analogue cousin. I might go into more detail about how I use it in a future post.
+* Motivation
+I use org mode as the primary store of information about myself, what I have done, and what I will do.
+It's fair to say that it contains a lot of stuff that I wouldn't want in the wrong hands -- and this goes further that criminals, but also my employer, clients, and significant other.
+For instance: I wouldn't want my employer knowing the details of job offers I receive. I wouldn't want Client A to know how much I was charging Client B. And I also wouldn't want my significant other to know that I was planning an engagement.
+However, these are all things that I would hypothetically want to keep in my org files, and I'll need to access my org files on *that* computer. And it's a key insight of David Allen's Getting Things Done that it is immensly important that we have a single store for all our information. Otherwise, we will often be left wondering -- "Now, where did I put that..." and "I could swear I had something on tomorrow...".
+The solution I use is to maintain mutliple org directories.
+This sounds complicated, but org actually makes it very simple to do so (working almost by default), and has the benefit of maintaining your privacy wherever you use org.
+* The setup
+I keep my org files at =~/org/=, and within this, there is another directory of org files =~/org/private/=.
+I'm happy with my calendar not being private, so I keep it at =~/org/calendar.org=. On the other hand, I want my finances to be private, so it goes in =~/org/private/finance.org=.
+Each of these folders is a git repository, and the secret to having nested git repos is to add the line =private/= to =~/org/.gitignore=. If you don't want to have them nested, the folders can be something like =~/org/default/= and =~/org/private/=.
+You should put these directories as variables in your config.
+#+BEGIN_SRC elisp
+(setq org-default-directory "~/org")
+(setq org-private-directory "~/org/private")
+#+END_SRC
+* Agenda
+http://orgmode.org/manual/Agenda-views.html
+The files that are included in your agenda is determined by the variable =org-agenda-files=. If a member of the list is a file, its items will be included, and if it is a directory, all files with the extension =.org= in this directory will be included.
+We will add both our default and private directories to our agenda.
+
+#+BEGIN_SRC elisp
+(setq org-agenda-files '(org-default-directory
+                         org-private-directory))
+#+END_SRC
+* Capture
+http://orgmode.org/manual/Capture.html
+Org's capture mode has been a god-send. Whereas previously I would expend mental effort keeping track of the tasks that accumulate throughout the day that I couldn't take down immediately, I know spend 5 seconds capturing in just enough details that I can elaborate later. I no longer worry that I might forget. (Capture's original name, =remember.el= was fitting. https://www.emacswiki.org/emacs/RememberMode)
+Your org mode config is probably set up to use a single org capture file, =org-default-notes-file=. This is normally fine, but not a good idea if you'll be using capture to record private information. What you'll want is two separate capture files, one in =~/org/= and one in =~/org/private/=.
+
+#+BEGIN_SRC elisp
+(setq org-default-notes-file 
+      (concat org-default-directory "/capture.org"))
+
+(setq org-private-notes-file 
+      (concat org-private-directory "/capture.org"))
+#+END_SRC
+
+We can then create two capture templates that differ only on the key press to activate, and the file to which they write.
+
+#+BEGIN_SRC elisp
+  (setq org-capture-templates
+
+        '(("c" "Refile"
+           entry
+           (file org-default-notes-file)
+           "* REFILE %?")
+
+          ("p" "Refile"
+           entry
+           (file org-private-notes-file)
+           "* REFILE %?")))
+#+END_SRC
+
+Now, =C-c c c= will write a note to our default folder and =C-c c p= will write to our private one, (=, c c= and =, c p= in Spacemacs). One limitation of this is that you cannot record private notes on a computer on which you don't have access to your private org directory, but if you're trying to do this you should reconsider, or make the note sufficiently vauge that it can go in your default repo.
+* Multiple private dirs
+As well as a personal private repo, you might also want to maintain others. If you have an NDA with your employer or client, you will want to keep this information far away from your other org files! But being an org addict, you will want to use org. The solution is exaclty the same as above -- you can even use the same config, as long as the folder name is the same.
+* Remotes
+I use my org files from multiple computers and use git to keep them in sync. For this, I have a private git remote set up for my default org directory, and depending on just how sensitive your private repo is, you will want to do the same for this repo. 
+On my personal computers, the remote is all set to the same url. On my work computer it points to the internal source control server, hosted like any other git repo. Few of your colleagues could say that their notes are hosted so resiliently...
+* Is and org repo as a git repo an antipattern?
+My article has presupposed that you are keeping your org directories as git repos. While this makes it easy to keep mutliple computers up to date and deal with merge issues, it does strike me that it may not be perfect.
+I make hundreds of changes to my org files per day, which means that meaningful commits and commit messages are impractical.
+All of my commits are made to master.
+I have never looked through the history of my commits.
+So I'd be interested to know if anyone has an alternative that they use, possibly DropBox or something similar -- and is it able to maintain separate default and private directories?
+(http://orgmode.org/worg/org-tutorials/org-vcs.html)
