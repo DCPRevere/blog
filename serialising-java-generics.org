@@ -1,4 +1,4 @@
-#+TITLE: Serialising with Java generics
+#+TITLE: On serialising with Java generics
 #+ID: serialising
 #+DATE: 2017/06/27
 * Serialising and generics
