@@ -29,6 +29,8 @@ Normally, we would expect for these methods to directly alter the properties of 
     (assoc item :item/name name)))
 #+END_SRC 
 
+Or we can utilise Clojure's multimethods if we want to apply different events differently.
+
 #+BEGIN_SRC clojure
 (defmulti apply-event
   (fn [_ event]
