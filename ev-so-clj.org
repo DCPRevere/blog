@@ -21,7 +21,8 @@ Our domain objects contain methods that describe its behaviours. If our domain o
 - check-in
 - remove
 Normally, we would expect for these methods to directly alter the properties of the object, but instead we will raise an event. Raising an event does two things: it appends the event to the objects 
-* Applying events is how we change the state of a domain object
+* Applying events
+Applying an event is where we change the state of the domain object
 #+BEGIN_SRC clojure
 (defn apply-event
   [item event]
