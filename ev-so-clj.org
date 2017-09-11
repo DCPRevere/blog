@@ -193,3 +193,6 @@ The general rule is that all business logic should be contained in the domain ob
 * Namespacing
 For a guide to how to namespace this, see my project [[https://github.com/DCPRevere/Demense][Demense]] which although not a exact replication of this code, follows it quite closely.
 * Aggregate or domain object?
+* Thanks
+https://github.com/riccardone
+https://github.com/gregoryyoung/m-r
