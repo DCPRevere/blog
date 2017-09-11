@@ -91,7 +91,7 @@ Our domain object contains an entry =:event/changes= which stores events that we
       (raise item {:event/type :event.type/item-renamed
                    :item/id id
                    :item/name name})))
-  #+END_SRC
+#+END_SRC
 
 Another behaviour we will want is the ability to create an item. This will be called with a nil domain object, and so can be used as the first event in the list of events when calling =load-from-history=.
 
@@ -102,4 +102,94 @@ Another behaviour we will want is the ability to create an item. This will be ca
                :item/id id
                :item/name name}))
 #+END_SRC
+* Saving domain objects
+I won't describe how to persist events here, as it very much depends on what storage you wish to use. However, be aware that traditional SQL databases can be used, and there are purpose made event stores, such as Greg Young's [[https://geteventstore.com/][Event Store]].
+A repository will have two functions, =get-by-id= and =save=.
 
+Assuming that you have two functions =get-events= and =save-events=, they can be written as such:
+
+#+BEGIN_SRC clojure
+(defn get
+  [id]
+  (load-from-history (get-events id))
+
+(defn save
+  [item]
+  (let [{:keys [:item/id :event/changes]} item]
+    (save-events id changes)))
+#+END_SRC
+** Streams
+A domain object per stream
+Construct stream name using the id and a stream prefix
+
+#+BEGIN_SRC clojure
+(def stream-prefix "item-")
+
+(defn remove-prefix
+  "Removes prefix if possible, returns the original string if not."
+  [string prefix]
+  (str/replace string (re-pattern (str "^" prefix)) ""))
+
+(defn s->a [stream-id]
+  (let [id (remove-prefix stream-id stream-prefix)]
+    (if (= id stream-id)
+      (throw (Exception. "Invalid stream id."))
+      id)))
+
+(defn a->s [id]
+(str stream-prefix id)
+#+END_SRC
+* The difference between a command and an event
+An event is a statement that something happened, and is understood to be a fact.
+A command is an instruction to our application.
+Because of this, events have a name in the past tense, such as "item renamed", whilst a command with have an imperative name, "rename item".
+
+A command will not be necessarily successful, as the application can reject them such as if another item has that name already, or if the item already has that name!
+
+Commands should be seen as being external, and not neccessarily knowing what effect they will have on the application.
+** How do we receive commands?
+* The command handler
+A command arrives at the commands handler.
+The command handler has a single external function, =handle=.
+It's purpose is to retrieve the domain object from the repository, call whatever behaviour is appropriate, and then save the domain object, persisting its new events.
+
+In good functional programming practice, I separate the IO and pure parts of this operation. =handle-pure= is a pure function which is passed the item so that it doesn't need to interact with the repository.
+
+#+BEGIN_SRC clojure
+(defmulti handle-pure
+  (fn [item command]
+    (:command/type command)))
+
+(defn handle
+  [command]
+  (let [{:keys [:item/id]} command
+        item (get-by-id id)]
+    (-> item
+        (handle-pure command)
+        save)))
+#+END_SRC
+
+The =io!= macro can be used to wrap pieces of code that you know involve IO, and this will cause them to throw exceptions if they are used in a transaction.
+
+We dispatch based on the type of command we receive. And although here, one command corresponds to one domain object behaviour, a command could cause several to be called.
+
+#+BEGIN_SRC clojure
+(defmethod handle-pure
+  :command.type/create-item
+  [item command]
+  (let [{:keys [:item/id :item/name]} command]
+    (if (nil? agg)
+      (create item id name)
+      item)
+
+(defmethod handle-pure
+  :command.type/rename-item
+  [item command]
+  (let [{:keys [:item/name]} command]
+    (rename item name))
+#+END_SRC
+** What should go in the command handler, and what should go in the domain object's behaviours?
+The general rule is that all business logic should be contained in the domain object's bahviours. An example of this would be if we learnt that there was a rule that item can only be named in all caps, and we should convert any lowercase letters. Because this is business logic, this should go in our aggregate.
+* Namespacing
+For a guide to how to namespace this, see my project [[https://github.com/DCPRevere/Demense][Demense]] which although not a exact replication of this code, follows it quite closely.
+* Aggregate or domain object?
