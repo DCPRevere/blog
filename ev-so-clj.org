@@ -1,0 +1,102 @@
+#+TITLE: On practical Event Sourcing in Clojure
+#+ID: ev-so-clj
+#+DATE: 2017/09/11
+* What is event sourcing and why do we do it?
+The traditional approach to storing data stores the current state.
+Event sourcing captures all changes to an application state as a sequence events, with the name specifically referring to the ability to source the current state of a domain object from all the events that describe changes to its state.
+* What does an event look like?
+An event is plain old data which describes a state transition. In Clojure, we can conveniently express this as a map:
+#+BEGIN_SRC clojure
+{:event/id "deadbeef"
+ :event/type :event.type/item-renamed
+ :item/id "foobar"
+ :item/name "New Name"}
+#+END_SRC
+Event names should always be written in the past tense, this allows us to distinguish them easily from commands.
+* What do our domain objects do?
+Our domain objects contain methods that describe its behaviours. If our domain objects were inventory items, the methods might be:
+- create
+- deactivate
+- rename
+- check-in
+- remove
+Normally, we would expect for these methods to directly alter the properties of the object, but instead we will raise an event. Raising an event does two things: it appends the event to the objects 
+* Applying events is how we change the state of a domain object
+#+BEGIN_SRC clojure
+(defn apply-event
+  [item event]
+  (let [{:keys [:item/name]} event]
+    (assoc item :item/name name)))
+#+END_SRC 
+
+#+BEGIN_SRC clojure
+(defmulti apply-event
+  (fn [_ event]
+    (:event/type event))
+
+(defmethod apply-event
+  :event.type/item-renamed
+  [item event]
+  (let [{:keys [:item/name]} event]
+    (assoc item :item/name name)))
+#+END_SRC
+
+A nice idiom for this process of moving key-value pairs from one map to another uses [[https://clojuredocs.org/clojure.core/select-keys][select-keys]] and [[https://clojuredocs.org/clojure.core/merge][merge]], particularly where you want to move several kvs or where some have conflicting short form names.
+
+#+BEGIN_SRC clojure
+(defn apply-event
+  [item event]
+  (let [m (select-keys event [:item/name])]
+    (merge item m)))
+#+END_SRC
+* Loading an aggregate
+It might have occured to you that apply-event that takes two arguments of type X and Y, returning X, and so is usable with [[https://clojuredocs.org/clojure.core/reduce][reduce]].
+As long as the first event in our list of events can be applied to a nil domain object, then we can apply a list of events as so:
+
+#+BEGIN_SRC clojure
+(reduce apply-event nil events)
+#+END_SRC 
+
+#+BEGIN_SRC clojure
+(defn load-from-history
+  [events]
+  (reduce apply-event nil events))
+#+END_SRC
+
+This is the procedure to recreate current state from events, and is the core of what we mean when we say "event-sourcing".
+* Aggregate behaviours
+The state of a domain object can only change through applying an event.
+So, if we want to add a function that changes the name of this domain object then we need to raise an event -- which means appending the event to the domain objects list of uncommitted events, and then applying that event.
+Our domain object contains an entry =:event/changes= which stores events that we have not yet persisted. We will persist them later.
+#+BEGIN_SRC clojure
+(defn append-event
+  [item event]
+  (update item :event/changes
+    #(concat % [event])))
+
+(defn raise
+  [item event]
+  (-> item
+      (append-event event)
+      (apply-event event)))
+
+(defn rename
+  [item name]
+  (let [{:keys [:item/id]} item]
+    (if (empty? name)
+      (throw (Exception. "New name is empty.")
+      (raise item {:event/type :event.type/item-renamed
+                   :item/id id
+                   :item/name name})))
+  #+END_SRC
+
+Another behaviour we will want is the ability to create an item. This will be called with a nil domain object, and so can be used as the first event in the list of events when calling =load-from-history=.
+
+#+BEGIN_SRC clojure
+(defn create
+  [item id name]
+  (raise item {:event/type :event.type/item-created
+               :item/id id
+               :item/name name}))
+#+END_SRC
+
