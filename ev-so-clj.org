@@ -1,36 +1,46 @@
 #+TITLE: On practical Event Sourcing in Clojure
 #+ID: ev-so-clj
 #+DATE: 2017/09/11
-* What is event sourcing and why do we do it?
-The traditional approach to storing data stores the current state.
-Event sourcing captures all changes to an application state as a sequence events, with the name specifically referring to the ability to source the current state of a domain object from all the events that describe changes to its state.
+* What is event sourcing?
+A traditional developemtn approach stores the application's current state. This is often what we want and all we need, but there are also times when we want to know more than just what the present can tell us.
+In event sourcing, every change to the state of the application is captures as an event, and the current state of the application can be rebuilt from knowledge of these events.
+This is a common approach in the real world:
+- ships
+- doctors
+- and accountants
+all store records like these. They do this because history can give us a greater understanding of the present. A childhood diagnosis might give insight into present symptoms, and neither you nor the tax man would be happy if your bank only stored your current balance.
+** Shipping
+Looking at a particular use case in the domain of shipping, perhaps at some point we want to know how often ships dock in each port. Knowing the current position of each ship will not help us. We could start recording dockings from today, but it could be some time before we could be confident that our result would match one measured over a longer time period.
+The ships themselves maintain a detailed history which includes information about where the ship has docked. With access to this information, we could answer immediately, knowing that it's based on information collected over the lifetime of the system. Event sourcing has allowed us to answer a question we didn't know we would have to answer.
+The other half of event sourcing is being able to rebuild the current state from the list of events. This is equivalent to calculating the current position of ships on the basis of bearing and speeds, though this has largely been superceded in modern times by the advent of GPS.
+** Warehousing
+Enough about shipping, for the remainder of this article, I will use warehousing as the domain, follwoing the example of Greg Yound in his SimpleCQRS project. The aggregate is an inventory item which should be understood as a "line" or "product", as opposed to a single instance of that "product".
 * What does an event look like?
-An event is plain old data which describes a state transition. In Clojure, we can conveniently express this as a map:
+An event is [[https://en.wikipedia.org/wiki/Passive_data_structure][plain old data]], identified by a unique ID, and event type, a domain object or aggregate id, and any extra information needed to understand the state change that occured.
 #+BEGIN_SRC clojure
-{:event/id "deadbeef"
+{:event/id 326
  :event/type :event.type/item-renamed
- :item/id "foobar"
- :item/name "New Name"}
+ :item/id 42
+ :item/name "Red gourd"}
 #+END_SRC
-Event names should always be written in the past tense, this allows us to distinguish them easily from commands.
-* What do our domain objects do?
-Our domain objects contain methods that describe its behaviours. If our domain objects were inventory items, the methods might be:
-- create
-- deactivate
-- rename
-- check-in
-- remove
-Normally, we would expect for these methods to directly alter the properties of the object, but instead we will raise an event. Raising an event does two things: it appends the event to the objects 
-* Applying events
-Applying an event is where we change the state of the domain object
+This event tells us that item 42 was renamed to "Red gourd". *NB* the event id is unique amongst events, the item id should refer to an extant item, unless it creates the item, and the name of the event type should be in the past tense signifying that an event is something that has happened, and ditinguishing them from similiar structures such as Commands.
+* What does an aggregate look like?
+An aggregate is an entity and so it requires a unique id. It also contains domain-specific information, which in this case means:
+- the name of the item
+- whether the item is active
+- its count
+The final entry, =:event/changes=, is something I'll come back to later.
 #+BEGIN_SRC clojure
-(defn apply-event
-  [item event]
-  (let [{:keys [:item/name]} event]
-    (assoc item :item/name name)))
-#+END_SRC 
-
-Or we can utilise Clojure's multimethods if we want to apply different events differently.
+{:item/id 42
+ :item/name "Red gourd"
+ :item/active? true
+ :item/count 5
+ :event/changes []}
+#+END_SRC
+* Applying events
+*Applying an event* means changing the state of the aggregate, in line with the information of an event.
+The function =apply-event= will take the aggregate and event, returning the updated aggregate.
+We could use a normal function, but if we want different behaviour for different event types, we can make use of Clojure's [[https://clojure.org/reference/multimethods][multimethods]]. Our dispatch value will be the event type.
 
 #+BEGIN_SRC clojure
 (defmulti apply-event
@@ -38,39 +48,38 @@ Or we can utilise Clojure's multimethods if we want to apply different events di
     (:event/type event))
 
 (defmethod apply-event
+  :event.type/item-created
+  [item event]
+  (let [{:keys [:item/id]} event]
+    {:item/id id
+     :item/activated? true}))
+
+(defmethod apply-event
   :event.type/item-renamed
   [item event]
-  (let [{:keys [:item/name]} event]
-    (assoc item :item/name name)))
+  (let [m (select-keys event [:item/name]
+    (merge item m)))
 #+END_SRC
 
 A nice idiom for this process of moving key-value pairs from one map to another uses [[https://clojuredocs.org/clojure.core/select-keys][select-keys]] and [[https://clojuredocs.org/clojure.core/merge][merge]], particularly where you want to move several kvs or where some have conflicting short form names.
-
-#+BEGIN_SRC clojure
-(defn apply-event
-  [item event]
-  (let [m (select-keys event [:item/name])]
-    (merge item m)))
-#+END_SRC
 * Loading an aggregate
-It might have occured to you that apply-event that takes two arguments of type X and Y, returning X, and so is usable with [[https://clojuredocs.org/clojure.core/reduce][reduce]].
-As long as the first event in our list of events can be applied to a nil domain object, then we can apply a list of events as so:
-
+In creating my =apply-event= function, the order of arguments was chosen specifically to be =[aggregate event]=, because functions that take arguments =[X Y]= and return =X= can be used with [[https://clojuredocs.org/clojure.core/reduce][=reduce=]]. If we want to apply a list of events to a aggregate all at once, we can use:
+#+BEGIN_SRC clojure
+(reduce apply-event aggregate events)
+#+END_SRC
+And, as long as the first event can be applied to a =nil= aggregate (in effect, creating the aggregate), then we can rebuild an aggregate from scratch as so:
 #+BEGIN_SRC clojure
 (reduce apply-event nil events)
-#+END_SRC 
-
+#+END_SRC
+This is how we will rebuild aggregates from the events that we have saved. This function is called =load-from-history=, and given events it returns an aggregate.
 #+BEGIN_SRC clojure
 (defn load-from-history
   [events]
   (reduce apply-event nil events))
 #+END_SRC
-
-This is the procedure to recreate current state from events, and is the core of what we mean when we say "event-sourcing".
+This function is the kernel of what we mean when we say "event sourcing".
 * Aggregate behaviours
-The state of a domain object can only change through applying an event.
-So, if we want to add a function that changes the name of this domain object then we need to raise an event -- which means appending the event to the domain objects list of uncommitted events, and then applying that event.
-Our domain object contains an entry =:event/changes= which stores events that we have not yet persisted. We will persist them later.
+One of the key dogmas is that the state of the application can only change through applying an event. Therefore, if we want to write a function that changes the name of the aggregate, it does so by first creating and applying an event. The event also needs to be tagged on to the aggregate so that it can be saved at a later point, this is the purpose of the =:event/changes= entry that we saw earlier. This whole process is called "raising an event".
 #+BEGIN_SRC clojure
 (defn append-event
   [item event]
@@ -83,30 +92,27 @@ Our domain object contains an entry =:event/changes= which stores events that we
       (append-event event)
       (apply-event event)))
 
+(defn create
+  [item id name]
+  (if (empty? name)
+    (throw (Exception. "New name is empty."))
+    (raise item {:event/type :event.type/item-created
+                 :item/id id
+                 :item/name name})))
+
 (defn rename
   [item name]
   (let [{:keys [:item/id]} item]
     (if (empty? name)
-      (throw (Exception. "New name is empty.")
+      (throw (Exception. "New name is empty."))
       (raise item {:event/type :event.type/item-renamed
                    :item/id id
                    :item/name name})))
 #+END_SRC
-
-Another behaviour we will want is the ability to create an item. This will be called with a nil domain object, and so can be used as the first event in the list of events when calling =load-from-history=.
-
-#+BEGIN_SRC clojure
-(defn create
-  [item id name]
-  (raise item {:event/type :event.type/item-created
-               :item/id id
-               :item/name name}))
-#+END_SRC
-* Saving domain objects
-I won't describe how to persist events here, as it very much depends on what storage you wish to use. However, be aware that traditional SQL databases can be used, and there are purpose made event stores, such as Greg Young's [[https://geteventstore.com/][Event Store]].
-A repository will have two functions, =get-by-id= and =save=.
-
-Assuming that you have two functions =get-events= and =save-events=, they can be written as such:
+*NB* domain behaviours, such as =create= and =rename= are where domain/business logic should be kept. The example here throws an exception if someone attempts to create or rename the item with an empty name.
+* Saving aggregates
+I won't describe how to persist events here, as your choice of storage is very much up to you. Both SQL databases and purpose made event stores such as Greg Young's [[https://geteventstore.com/][Event Store]] will get you there. See the following section on streams for important implementation details.
+An aggregate repository will have two functions, =get-by-id= and =save=. Assuming that you have two functions =get-events= and =save-events= that interact with your DB:
 
 #+BEGIN_SRC clojure
 (defn get
@@ -119,9 +125,9 @@ Assuming that you have two functions =get-events= and =save-events=, they can be
     (save-events id changes)))
 #+END_SRC
 ** Streams
-A domain object per stream
-Construct stream name using the id and a stream prefix
-
+Event Store has the concept of a stream which is similar to a table in an RDB. A useful rule to follow is that streams and aggregates should have a one-to-one correspondance, and so a stream should contain all the events for a single aggregate, and the name of the stream should be the type of aggregate followed by its ID. In our case, this would be "item-42".
+This is not a hard and fast rule, and you might find that other approaches fit your use case better.
+To convert between stream ids and aggregate ids:
 #+BEGIN_SRC clojure
 (def stream-prefix "item-")
 
@@ -131,30 +137,26 @@ Construct stream name using the id and a stream prefix
   (str/replace string (re-pattern (str "^" prefix)) ""))
 
 (defn s->a [stream-id]
+  "Converts a stream id into an aggregate id."
   (let [id (remove-prefix stream-id stream-prefix)]
     (if (= id stream-id)
       (throw (Exception. "Invalid stream id."))
       id)))
 
 (defn a->s [id]
-(str stream-prefix id)
+  "Converts an aggregate id into a stream id."
+  (str stream-prefix id))
 #+END_SRC
 * The difference between a command and an event
-An event is a statement that something happened, and is understood to be a fact.
-A command is an instruction to our application.
-Because of this, events have a name in the past tense, such as "item renamed", whilst a command with have an imperative name, "rename item".
-
-A command will not be necessarily successful, as the application can reject them such as if another item has that name already, or if the item already has that name!
-
-Commands should be seen as being external, and not neccessarily knowing what effect they will have on the application.
+An event is a statement that something happened, and that the state of an aggregate changed. A command is an instruction to the application to do something. Because of this, events have a name in the past tense "item renamed", whilst a command will have an imperative name, "rename item".
+A commmand will not be necessarily successful as the application can reject them. Our domain might have a rule that no two items can have the same name, and if a command is received that instructs us to rename an item to an existing name we can throw an exception and not change the state of the aggregate. Commands should be seen as external, and not neccessarily knowing what effect they will have on the application.
 ** How do we receive commands?
+REST
+Subscriptions
 * The command handler
-A command arrives at the commands handler.
-The command handler has a single external function, =handle=.
-It's purpose is to retrieve the domain object from the repository, call whatever behaviour is appropriate, and then save the domain object, persisting its new events.
-
-In good functional programming practice, I separate the IO and pure parts of this operation. =handle-pure= is a pure function which is passed the item so that it doesn't need to interact with the repository.
-
+A command arrives at the command handler. The command handler has a single external function, =handle=. Its purpose is to retrieve the aggregate from the repository, call one or more behaviours of the aggregate, and then to save it.
+In good functional programming practice, I have separated the IO and pure parts of this operation. =handle-pure= is a pure function which is passed the aggregate so that it doesn't need to interact with the repository, and returns the aggregate so that it can be saved.
+Separating IO and pure code is useful if only because it means that we can write unit tests for =handle-pure= that don't require a connection to a database.
 #+BEGIN_SRC clojure
 (defmulti handle-pure
   (fn [item command]
@@ -167,13 +169,7 @@ In good functional programming practice, I separate the IO and pure parts of thi
     (-> item
         (handle-pure command)
         save)))
-#+END_SRC
 
-The =io!= macro can be used to wrap pieces of code that you know involve IO, and this will cause them to throw exceptions if they are used in a transaction.
-
-We dispatch based on the type of command we receive. And although here, one command corresponds to one domain object behaviour, a command could cause several to be called.
-
-#+BEGIN_SRC clojure
 (defmethod handle-pure
   :command.type/create-item
   [item command]
@@ -188,11 +184,9 @@ We dispatch based on the type of command we receive. And although here, one comm
   (let [{:keys [:item/name]} command]
     (rename item name))
 #+END_SRC
-** What should go in the command handler, and what should go in the domain object's behaviours?
-The general rule is that all business logic should be contained in the domain object's bahviours. An example of this would be if we learnt that there was a rule that item can only be named in all caps, and we should convert any lowercase letters. Because this is business logic, this should go in our aggregate.
+Just like with =apply-event=, we dispatch based on the type of command we receive. And although here, one command corresponds to one domain object behaviour, a command could cause several to be called.
 * Namespacing
 For a guide to how to namespace this, see my project [[https://github.com/DCPRevere/Demense][Demense]] which although not a exact replication of this code, follows it quite closely.
-* Aggregate or domain object?
 * Thanks
-https://github.com/riccardone
-https://github.com/gregoryyoung/m-r
+[[https://github.com/riccardone][Riccardone]]
+[[https://github.com/gregoryyoung/m-r][Greg Young's SimpleCQRS]]
