@@ -151,8 +151,7 @@ To convert between stream ids and aggregate ids:
 An event is a statement that something happened, and that the state of an aggregate changed. A command is an instruction to the application to do something. Because of this, events have a name in the past tense "item renamed", whilst a command will have an imperative name, "rename item".
 A commmand will not be necessarily successful as the application can reject them. Our domain might have a rule that no two items can have the same name, and if a command is received that instructs us to rename an item to an existing name we can throw an exception and not change the state of the aggregate. Commands should be seen as external, and not neccessarily knowing what effect they will have on the application.
 ** How do we receive commands?
-REST
-Subscriptions
+There are many ways in which our application can receive commands. One that will be familiar to reader is REST, where HTTP endpoints can be used to create commands. Another that will be less familiar is an event subscription; external events are received by the application which then sends commands to the command handler. The Event Store documentation has more information on [[http://docs.geteventstore.com/introduction/4.0.0/subscriptions/][subscriptions]].
 * The command handler
 A command arrives at the command handler. The command handler has a single external function, =handle=. Its purpose is to retrieve the aggregate from the repository, call one or more behaviours of the aggregate, and then to save it.
 In good functional programming practice, I have separated the IO and pure parts of this operation. =handle-pure= is a pure function which is passed the aggregate so that it doesn't need to interact with the repository, and returns the aggregate so that it can be saved.
