@@ -187,5 +187,4 @@ Just like with =apply-event=, we dispatch based on the type of command we receiv
 * Namespacing
 For a guide to how to namespace this, see my project [[https://github.com/DCPRevere/Demense][Demense]] which although not a exact replication of this code, follows it quite closely.
 * Thanks
-[[https://github.com/riccardone][Riccardone]]
-[[https://github.com/gregoryyoung/m-r][Greg Young's SimpleCQRS]]
+I owe thanks to [[https://github.com/riccardone][Riccardone]] for teaching me Event Sourcing, and to Greg Young for his [[https://github.com/gregoryyoung/m-r][SimpleCQRS]] project, which guided much of my development.
