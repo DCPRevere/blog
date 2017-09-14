@@ -1,5 +1,5 @@
 #+TITLE: On practical Event Sourcing in Clojure
-#+ID: ev-so-clj
+#+ID: event-sourcing-clj
 #+DATE: 2017/09/11
 * What is event sourcing?
 A traditional developemtn approach stores the application's current state. This is often what we want and all we need, but there are also times when we want to know more than just what the present can tell us.
