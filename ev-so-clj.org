@@ -57,7 +57,7 @@ We could use a normal function, but if we want different behaviour for different
 (defmethod apply-event
   :event.type/item-renamed
   [item event]
-  (let [m (select-keys event [:item/name]
+  (let [m (select-keys event [:item/name])]
     (merge item m)))
 #+END_SRC
 
@@ -115,7 +115,7 @@ I won't describe how to persist events here, as your choice of storage is very m
 An aggregate repository will have two functions, =get-by-id= and =save=. Assuming that you have two functions =get-events= and =save-events= that interact with your DB:
 
 #+BEGIN_SRC clojure
-(defn get
+(defn get-by-id
   [id]
   (load-from-history (get-events id))
 
