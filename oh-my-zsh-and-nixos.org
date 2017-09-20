@@ -1,0 +1,21 @@
+#+TITLE: On using Oh My Zsh with NixOS
+#+ID: oh-my-zsh-and-nixos
+#+DATE: 2017/09/20
+* Why doesn't it work normally?
+NixOS has an unusal approach to storing executables; in order to be able to store mutliple versions of a package, their paths are cryptic. This can lead to problems, such as scripts not working if they begin with =#!/bin/bash= (the executable isn't at that path), and with Oh My Zsh which needs to be sourced in =.zshrc=.
+* Export an environment variable
+In =/etc/nixos/configuration.nix=, you can export an environment variable like this:
+#+BEGIN_SRC nix
+  environment.variables = {
+    TERMINAL = [ "gnome-terminal" ];
+    OH_MY_ZSH = [ "${pkgs.oh-my-zsh}/share/oh-my-zsh" ];
+  };
+#+END_SRC
+This makes the path of Oh My Zsh visible.
+* Sourcing Oh My Zsh
+In =.zshrc= you can source Oh My Zsh like this:
+#+BEGIN_SRC nix
+source $OH_MY_ZSH/oh-my-zsh.sh
+#+END_SRC
+* Conclusion
+NixOS's usual package management can be a pain, but usually there's a solution.
