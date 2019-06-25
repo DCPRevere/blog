@@ -1,0 +1,267 @@
+#+TITLE: On my dotfiles
+#+ID: dotfiles-1
+#+DATE: 2019/06/25
+
+* My dotfiles
+
+** My setup
+
+I use a variety of computers (laptops and desktops), and use the same configuration files for all these devices.
+
+I run a heavily-modded version of Ubuntu's latest release, with zsh as my default shell and i3 as my window manager.
+
+My dotfiles are stored in a git repository that I deploy on a new machine using [[https://www.gnu.org/software/stow/][GNU stow]].
+
+** Bash
+
+Whilst I don't use bash as my default shell, there is one file that I need.
+
+Ubuntu runs ~.profiles~, a bash script, on startup to set things like environment variables that will be used by all processes. If environment variables are set after this, such as in .zshrc, they will only be available to zsh shells and not to other processes like i3 or emacs.
+
+There are only 2 environment variables I set here: TERMINAL and PATH
+- TERMINAL :: this is used by i3 to decide what to use as the default terminal emulator.
+- PATH :: this is a colon-separated list that tells processes where to find executables. If you run ~foo~ from the command line, the list of directories will be searched in order for an executable with that name, and the first one is run.
+
+To calculate PATH, I delegate to a zsh script ~.path.zsh~ which I will describe shortly.
+
+#+BEGIN_SRC bash
+export TERMINAL="/usr/bin/alacritty"
+export PATH=$(zsh ~/.path.zsh)
+#+END_SRC
+
+** Zsh
+
+*** .zshrc
+
+**** Oh My Zsh
+
+I use zsh as my default shell, with the [[https://github.com/robbyrussell/oh-my-zsh][Oh My Zsh]] (OMZ) providing a great amount of extra functionality.
+
+OMZ will create its own ~.zshrc~ which you can then edit after installation.
+
+#+BEGIN_SRC zsh
+export ZSH=/home/dare/.oh-my-zsh
+plugins=( ... )
+source $ZSH/oh-my-zsh.sh
+#+END_SRC
+
+Agnoster has been my favourite OMZ theme for years now, but other attractive themes are Bureau, Dieter, and Pygmalion: [[https://github.com/robbyrussell/oh-my-zsh/wiki/Themes][OMZ Themes]]
+
+I've added an RPROMPT which shows the date and time that particular commands where run.
+
+#+BEGIN_SRC zsh
+ZSH_THEME="agnoster"
+RPROMPT="[%D{%Y-%m-%d} %*]"
+#+END_SRC
+
+I will describe my approach to aliases when I cover the file ~.aliases.zsh~.
+
+**** Emacs
+
+I use Emacs for all my text editing. Surpassing ~zsh~ and Firefox, it is my most used application.
+
+Emacs can be used in a server-client configuration so that subsequent emacs sessions just hook into an already-started daemon. This can greatly improve performance.
+
+#+BEGIN_SRC zsh
+export ALTERNATE_EDITOR=emacs EDITOR="emacsclient -c" VISUAL="emacsclient -c"
+#+END_SRC
+
+- EDITOR :: a basic editor
+- VISUAL :: an editor with visual capabilities
+- ALTERNATE_EDITOR :: specifies the command that should be run if ~emacsclient~ cannot contact an Emacs server
+
+I'm unsure whether Emacs is actually a good fit for EDITOR, or if I should use something simpler like [[https://en.wikipedia.org/wiki/Ed_(text_editor)][ed]]. But /if it ain't broke.../
+
+And even though I am an Emacs user, I vastly prefer vi-style keybindings. You can use them in bash, zsh, and other editors by setting this.
+
+#+BEGIN_SRC zsh
+set -o vi
+#+END_SRC
+
+**** Plugins
+
+As well as OMZ, zsh supports plugins that can be manually installed. I keep these in a directory called ~$HOME/.zsh.d/~ and then source the files.
+
+My two favourite plugins are [[https://github.com/zsh-users/zsh-syntax-highlighting][syntax highlighting]] and [[https://github.com/zsh-users/zsh-history-substring-search][history substring search]].
+
+And for the substring search, I bind the actions of cycling through the history to up and down, crtl-n and ctrl-p, and j and k, for the different modes -- normal, emacs, and vi.
+
+**** Keybindings
+
+As someone who doesn't use caps lock but does use vi keybindings, I have rebound it to ESC.
+
+#+BEGIN_SRC zsh
+setxkbmap -option caps:escape
+#+END_SRC
+
+
+*** .aliases.zsh and .aliases.local.zsh
+
+To keep aliases separate from the rest of my configuration, I have moved them into their own file.
+
+It just contains a list of aliases like so:
+
+#+BEGIN_SRC zsh
+alias <alias>=<command>
+#+END_SRC
+
+This file is then ~source~'d from ~.zshrc~.
+
+~.aliases.local.zsh~ is used for aliases that should not be source controlled. I use this for aliases that include private information that cannot be kept in a public repository like my dotfiles.
+
+*** .path.zsh
+
+This script just creates and returns the PATH variable by concatenating a list of directories.
+
+In the past I've got incredibly confused by editing the PATH in a hundred different places, not knowing what got set where, so now I keep it all in this one place.
+
+** i3
+
+i3 is a tiling window manager which handles how windows are arranged onscreen. It's difficult to describe how tiling WNs are different to normal window managers (like you might be used to with MS Windows, MacOS, Unity or Gnome), but they are are much easier to manipulate using only a keyboard and use the screen more efficiently.
+
+i3 has a key called mod that is used in all its key combinations. Here I set it to ALT.
+
+#+BEGIN_SRC conf
+  set $mod Mod4
+#+END_SRC
+
+~bindsym~ is used to link key combos to commands.
+
+Earlier, in ~.profile~, I set the environment variable TERMINAL. i3 uses this to decide which terminal to launch when ~i3-sensible-terminal~.
+
+#+BEGIN_SRC conf
+  bindsym $mod+Return exec --no-startup-id i3-sensible-terminal
+#+END_SRC
+
+i3 lacks the 'red cross' that allows you to close windows in other WMs. Despite this, many applications will support being closed using the combo ctrl+w or ctrl+q. Failing this, the command ~kill~ will kill the focused window.
+
+#+BEGIN_SRC conf
+  bindsym $mod+Shift+q kill
+  bindsym $mod+Shift+x exec gnome-terminal -e xkill
+#+END_SRC
+
+Instead of launchers and docks and start menus, we can use dmenu to run applications.
+
+#+BEGIN_SRC conf
+  bindsym $mod+d exec --no-startup-id dmenu_run
+#+END_SRC
+
+And move our focus between windows using vim-style bindings.
+
+#+BEGIN_SRC conf
+  bindsym $mod+h focus left
+  bindsym $mod+j focus down
+  bindsym $mod+k focus up
+  bindsym $mod+l focus right
+#+END_SRC
+
+Or move the windows using the shift variants.
+
+#+BEGIN_SRC conf
+  # move focused window
+  bindsym $mod+Shift+h move left
+  bindsym $mod+Shift+j move down
+  bindsym $mod+Shift+k move up
+  bindsym $mod+Shift+l move right
+#+END_SRC
+
+Much of what is in this file is standard i3 configuration, so I will jump to what makes my configuration unique.
+
+*** Volume and brightness
+
+Bind the volume buttons to executing scripts.
+
+#+BEGIN_SRC conf
+  bindsym XF86AudioRaiseVolume exec --no-startup-id change-volume.sh + 10
+  bindsym XF86AudioLowerVolume exec --no-startup-id change-volume.sh - 10
+  bindsym XF86AudioMute exec --no-startup-id mute.sh
+#+END_SRC
+
+And these scripts use PulseAudio's command line tools to change the volume.
+
+They are kept in ~$HOME/scripts~, which is on the PATH.
+
+We do something similar for the brightness controls, but directly use the xbacklight command.
+
+#+BEGIN_SRC conf
+  bindsym XF86MonBrightnessUp exec --no-startup-id xbacklight -inc 10
+  bindsym $mod+p exec --no-startup-id xbacklight -inc 1
+  bindsym XF86MonBrightnessDown exec --no-startup-id xbacklight -dec 10
+  bindsym $mod+o exec --no-startup-id xbacklight -dec 1
+#+END_SRC
+
+*** Locking
+
+To protect your computer from oppurtunistic miscreants, you can lock your computer using ~i3lock~. I execute it inside the script ~lock.sh~.
+
+#+BEGIN_SRC conf
+  bindsym $mod+q exec --no-startup-id "$HOME/.i3/lock.sh $HOME/.i3/lock-gray.png"
+#+END_SRC
+
+It takes a screenshot, blurs it, overlays the image argument, and then waits for the sudo password to be entered before control is returned to the user.
+
+The blurred scrrenshot is for aesthetics, and is probably a security vulnerability.
+
+*** Applications
+
+Mnemonics:
+- b :: browser
+- n :: new (editor)
+- m :: more (editors)
+- c :: compton
+
+#+BEGIN_SRC conf
+  bindsym $mod+b exec --no-startup-id firefox
+  bindsym $mod+n exec --no-startup-id emacs
+  bindsym $mod+m exec --no-startup-id emacsclient -a '' -cn
+  bindsym $mod+c exec --no-startup-id killall compton && compton -b
+#+END_SRC
+
+**** On startup
+
+Start ~compton~, a compositor.
+
+~unclutter~ hides the mouse after a delay.
+
+~nm-applet~ and ~blueman-applet~ are tray tools for managing networking and bluetooth connections, respectively.
+
+~nitrogen~ set the wallpaper.
+
+And finally, we can tell i3 to start certain applications on certain workspaces. I always start a terminal, emacs, and firefox.
+
+#+BEGIN_SRC conf
+exec --no-startup-id compton -b
+exec --no-startup-id unclutter
+exec --no-startup-id nm-applet
+exec --no-startup-id blueman-applet
+exec --no-startup-id nitrogen --set-zoom-fill ~/media/pictures/thai-mountain.jpg
+exec --no-startup-id i3-msg 'workspace 8; exec i3-sensible-terminal; exec emacs; exec firefox'
+#+END_SRC
+
+** Compton
+
+Compton is a compositor. It allows us to manipulate how windows are displayed.
+
+I particularly like making my windows transparent, this is done by setting the default active- and inactive-opacities and then using custom ~opacity-rule~s.
+
+#+BEGIN_SRC conf
+  inactive-opacity = 0.8;
+  active-opacity = 0.9;
+  opacity-rule = [
+          "99:class_g = 'Firefox' && !_NET_WM_STATE@:32a" ,
+          "99:class_g = 'Firefox' && focused" ,
+          "99:class_g = 'vlc' && !_NET_WM_STATE@:32a" ,
+          "99:class_g = 'vlc' && focused" ,
+          "0:_NET_WM_STATE@[0]:32a *= '_NET_WM_STATE_HIDDEN'",
+          "0:_NET_WM_STATE@[1]:32a *= '_NET_WM_STATE_HIDDEN'",
+          "0:_NET_WM_STATE@[2]:32a *= '_NET_WM_STATE_HIDDEN'",
+          "0:_NET_WM_STATE@[3]:32a *= '_NET_WM_STATE_HIDDEN'",
+          "0:_NET_WM_STATE@[4]:32a *= '_NET_WM_STATE_HIDDEN'"
+          ];
+#+END_SRC
+
+These are difficult to read and harder to write.
+
+Starting with the latter half, that start with 0s, they tell compton to make windows that windows stacked behind other windows should be fully transparent. This is so that if the front window is at 90% opacity, you do not see all the other windows stacked behind it -- it goes straight through to the wallpaper.
+
+With VLC and Firefox, I don't want these to be transparent at all, so I set these to 99 (100 isn't supported for some reason).
