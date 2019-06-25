@@ -6,6 +6,7 @@ I needed to create a repository that could persist objects in JSON form.
 A repository has two public methods, get and save.
 
 Imagine, we only wanted to be able to store ints in our repository, and reference them with a String key:
+
 #+BEGIN_SRC java
 public interface Repository {
     void save (String key, int value);
@@ -14,6 +15,7 @@ public interface Repository {
 #+END_SRC
 
 Then our implementation could be:
+
 #+BEGIN_SRC java
 public class IntRepository
     implements Repository {
@@ -29,9 +31,16 @@ public class IntRepository
 }
 #+END_SRC
 
-Obviously, this class isn't doing a useful job -- it's left to the reader to actually save these values and then retrieve them.
-What's interesting is how we can make this Repository generic -- if we wanted a Repository that could store bytes, or Strings, or any other type, we would need to create a new class for each.
-However, using Java's generics, we can create one class that's able to act as a Repository for all objects, while a single instance of the repository will store only a single type, and garuntee a strong type when retrieving things from the repository.
+Obviously, this class isn't doing a useful job. It's left to the reader to actually save these values and then retrieve them.
+
+What's interesting is how we can make this Repository generic. Currently, if we wanted a Repository that could store bytes or strings or any other type, we would need to create a new Repository class for each. /IntRepository, StringRepository, RepoRepository.../
+
+But, by using generics, we can create a class that can act as a Repository for all types, with each Repository accepting and returning only a single type.
+
+Implemented naively, this could be done by get returning an Object which is then cast, but this misses all the benefits of type safety and opens you up to ClassCastExceptions!
+
+Generics allow us to return a value that is *strongly*-typed.
+
 #+BEGIN_SRC java
 public interface Repository <T> {
     void save (String key, T value);
@@ -53,12 +62,14 @@ public class RepositoryImpl <T>
 
 I've commented out our get method as this won't currently compile. We need to find a way to return something of type T.
 It turns out that we can just cast.
+
 #+BEGIN_SRC java
 public T get (String key) {
     return (T) "Hello, world";
 }
 #+END_SRC
-But this fail if T something a String cannot be casted to.
+
+But this will throw a ClassCastException if T is something a String cannot be casted to.
 
 In my case, I was storing my objects in JSON form in a Postgres database.
 Using Jackson's object mapper, any Java object can be converted into JSON.
@@ -96,6 +107,7 @@ cannot select from a type variable
 It seems that =T.class= is a problem, and it's a bit beyond my understanding to know why.
 
 Instead, we can pass the Class into the object within the constructor. I'll also add exception handling.
+
 #+BEGIN_SRC java
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -132,9 +144,11 @@ public class RepositoryImpl <T>
 }
 #+END_SRC
 
-This is looking pretty good, but will only let us specify the class.
+This is looking pretty good, but will only let us specify the class, and we are still casting the return value.
+
 What if we want a repository of List<String>? The repo will store Lists, and return Lists, with no garuntee that those Lists contain Strings.
-Thankfully, TypeReferences give us a deeper understanding that Classes. Casting to T is now superfluous.
+
+Thankfully, TypeReferences give us a deeper understanding than Classes. Casting to T is now superfluous.
 
 #+BEGIN_SRC java
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -161,6 +175,7 @@ public T get (String key) {
 #+END_SRC
 
 And this is how we can use it.
+
 #+BEGIN_SRC java
 TypeReference<String> type = new TypeReference<String>(){};
 Repository<String> repo = new RepositoryImpl<String>(type);
@@ -170,6 +185,7 @@ String str = repo.get("3");
 #+END_SRC
 
 It's not nice that we have to specify the type twice. We can remove this by generating the TypeReference inside the constructor.
+
 #+BEGIN_SRC java
 public RepositoryImpl () {
     this.type = new TypeReference<T>(){};
@@ -177,5 +193,43 @@ public RepositoryImpl () {
 }
 #+END_SRC
 
+/Et voila/. 
+
+With this, we now have a fully generic Repository, with no casting and strong type guarantees.
+
+Here is the full code for our new class.
+
+#+BEGIN_SRC java
+  public class RepositoryImpl <T> {
+
+      private TypeReference type;
+      private ObjectMapper mapper;
+
+      public RepositoryImpl () {
+        this.type = new TypeReference<T>(){};
+        this.mapper = new ObjectMapper();
+      }
+
+      public void save (String key, T value) {
+          try {
+              String jsonAsString = mapper.writeValueAsString(value);
+              // persist the String
+          } catch (JsonProcessingException jpe) {}
+          return;
+      }
+
+      public T get (String key) {
+          // retreive the string
+          String jsonAsString = "";
+          try {
+              return mapper.readValue(jsonAsString, type);
+          } catch (IOException ioe) {
+              return null;
+          }
+      }
+  }
+#+END_SRC
+
 ** Exercise for the reader
+
 In this article, I have shown how to genericise the objects that are stored within the repository, but we are still bound to using =Strings= as our keys. Try introducing a second generic variable to act as the key of our =Repository=.
